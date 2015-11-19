@@ -1,0 +1,547 @@
+\documentclass[prd,showpacs,showkeys,preprintnumbers,floatfix,
+nofootinbib,superscriptaddress]{revtex4}
+%------------------
+% used packages
+%------------------
+\usepackage{float}
+\usepackage{nicefrac}
+\usepackage{slashed}
+\usepackage{mathtools}
+\usepackage{amsfonts} % AMS
+\usepackage{amssymb} % AMS
+\usepackage{amsmath} % AMS
+\usepackage{graphicx} % Include figure files
+\usepackage{subfigure} % Include figure files
+\usepackage{listings}
+\usepackage{array} % array
+\usepackage{dcolumn} % Align table columns on decimal point
+\usepackage{bm} % bold math
+\usepackage{latexsym} % latex symbols
+\usepackage{longtable} % long tables
+\usepackage{hyperref} % hypertext links 
+\usepackage{verbatim}
+\usepackage{epsfig}
+\usepackage{color}
+\DeclareGraphicsRule{.pdftex}{pdf}{.pdftex}{}
+%
+%
+%
+\usepackage{verbatimbox}
+
+\newcommand{\X}[0]{\mathcal X_{\sigma F \cdots F \sigma^\dagger}}
+\newcommand{\raul}[0]{\bf \color{blue} }
+\newcommand{\vbegin}[0]{
+	\footnotesize
+	\begin{verbatim} }
+\newcommand{\vend}[0]{
+	\end{verbatim} 
+	\normalsize
+	}
+
+\newcommand{\mh}[0]{\bf \color{red}}
+\newcommand{\nn}[0]{\nonumber}
+\newcommand{\khs}[0]{\hat {\textbf{k}}^*}
+\newcommand{\w}[0]{w}
+
+%
+\begin{document}
+\title{Notes on the radiative transition code and implementation
+}
+
+\author{Ra\'ul A. Brice\~no}
+%
+\email[e-mail: ]{rbriceno@jlab.org}
+%
+\affiliation{
+Thomas Jefferson National Accelerator Facility, 12000 Jefferson Avenue, Newport News, VA 23606, USA\\
+}
+
+
+
+
+\date{\today}
+%
+\begin{abstract}
+Notes sketching how to perform a radiative transition calculation  
+\end{abstract}
+%
+\maketitle
+
+
+
+
+
+
+\section{Introduction}
+ 
+\indent
+Chroma - solution vectors\\
+\indent
+Harom  - gen props\\
+\indent
+Redstar - contractions\\
+\indent
+Form factors - three-point\\
+
+\section{Generating weights}
+\subsection{Definition}
+ 
+The majority of the work that I discuss here was developed by Christian Shultz with the help of Jo and Robert. This work resulted in Christian's paper~\cite{Shultz:2015pfa}. In it, you will find some of the details that I review here. The basic idea is to calculated a three point function of the form 
+
+\begin{align}
+C^{3pt.}_{a,b}(\Delta t,t)&=
+\langle
+0|
+\Omega^{[\Lambda_{fin}]}_{b,n'}(\Delta t, \textbf{P}_{b})
+{\mathcal{J}}(t,\textbf{P}_{b}-\textbf{P}_{a})
+\Omega^{[\Lambda_{a}]\dag}_{a,n}(0, \textbf{P}_{a})
+|0\rangle,
+\label{eq:Cpipi_to_pi}
+\end{align}
+where $\Omega^{[\Lambda_{a}]\dag}_{a,n}(0, \textbf{P}_{a})$ is an optimized operator for an ``$a$" state with momentum $\textbf{P}_{a}$ in the irrep $\Lambda_{a}$ and that maximally couples to the $nth$ eigenstate. ${\mathcal{J}}$ is some generic external current placed in time $t$ and forced to satisfied momentum conservation. 
+
+An optimized interpolating operator can be constructed from any basis of operators $\{\mathcal{O}_i\}$ using the weights obtained in the variational method
+\begin{align}
+\label{eq:optimized_ops}
+\Omega_n^\dag= \sqrt{2E_n} e^{-E_nt_0/2}\sum_{i}v^{(i)}_m\mathcal{O}_i^\dag,
+\end{align}
+where $v^{(i)}_m$ are the eigenvectors of the variational method implemented in the two-point functions
+\begin{align}
+C^{2pt.}(t,\textbf{P})~v_n=\lambda_n~C^{2pt.}(t_0,\textbf{P})~v_n.
+\end{align}
+
+Note, if we choose the definition given in Eq.~\ref{eq:optimized_ops} for the optimized operators, this results in the following normalization of the operators 
+\begin{align}
+\langle n | \Omega_n^\dag|0\rangle= 2E_n .
+\end{align}
+ This is a choice, but one must be careful to bear in mind this normalization in definition of the matrix elements. I would argue physically motivated definition would be to normalize states and operators to one, but this is the normalization we have now. 
+ 
+ Let's begin by describing the steps to generate the weights for constructing the optimized operators. 
+
+\subsection{The nitty-gritty}
+ 
+For this, you will need to get from github:  
+\footnotesize
+\begin{verbatim}
+scripts_cjs
+\end{verbatim} 
+\normalsize
+	
+Let's assume that you have downloaded this directory onto a directory called "git" in your home directory. If so, there will be a subdirectory for the construction of the optimized operators:
+\footnotesize
+\begin{verbatim}
+~/git/scripts_cjs/optimized_operators/
+\end{verbatim} 
+\normalsize
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+Below this, you will find various scripts and folder associated with the different ensembles we have studied. So, for example, go to 
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\footnotesize
+\begin{verbatim}
+
+~/git/scripts_cjs/optimized_operators/szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265_per
+\end{verbatim} 
+\normalsize
+
+\normalsize
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+this is the directory for the m840 ensemble L=20. Then, go to particle that you want to project, for example the ``rho".  Note, for these ensembles the rho is unstable, so the name rho really means finite volume states that have the same quantum numbers as the rho. There, you will find proj0 and proj1. The first of these corresponds to the ground state of the various irreps studied, proj1 is the first first excited state of the irreps considered.
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\\
+\\
+\indent
+Go to  
+\footnotesize
+\begin{verbatim}
+rho/proj1
+\end{verbatim} 
+\normalsize
+
+and take a look at OPparams.pl. Edit to closely resemble the what you want to study, for example, you might want the following for the rho
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\footnotesize
+\begin{verbatim}
+my $spin = 1;
+my $parity = "m";
+my $twoI_z = 2;
+my $reconpath = "/work/JLabLQCD/LHPC/Spectrum/Clover/NF2+1/szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265_per/meson_2pt";
+my $pid = "rho_proj1";
+my $ncfg = 603;
+my $ensemble = "szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265";
+my $outfile = "proj_op_${pid}.pl";
+\end{verbatim} 
+\normalsize
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Run this to generate:  
+\footnotesize
+\begin{verbatim}
+proj_op_rho_proj1.pl. 
+\end{verbatim}
+ \normalsize
+This file you will need to edit file by hand. You will need to edit the operators blocks, as well as the   
+\footnotesize
+\begin{verbatim}
+push @all_operators , $rho_proj1_p111_H0D3A1; 
+\end{verbatim} 
+\normalsize
+blocks at the end of the file. Here is an example of what the T1 operator should look like:
+\footnotesize
+\begin{verbatim}
+my $rho_proj0_p000_T1 = OPparams->new();
+$rho_proj0_p000_T1->pid("rho_proj0");
+$rho_proj0_p000_T1->irrep("T1");
+$rho_proj0_p000_T1->irrep_stem("T1");
+$rho_proj0_p000_T1->mom("p000");
+$rho_proj0_p000_T1->twoI_z(2);
+$rho_proj0_p000_T1->ncfg(603);
+$rho_proj0_p000_T1->spin(1);
+$rho_proj0_p000_T1->ensemble("szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265");
+$rho_proj0_p000_T1->recon_dir("/work/JLabLQCD/LHPC/Spectrum/Clover/NF2+1/szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265_per/redstar/rho/rho_ff/ws_larger/T1mm_wr");
+$rho_proj0_p000_T1->t0(7);
+$rho_proj0_p000_T1->state(0);
+$rho_proj0_p000_T1->tz(11);
+$rho_proj0_p000_T1->phaser(1.);
+$rho_proj0_p000_T1->recon_version("two_particle");
+$rho_proj0_p000_T1->nested(["pipi_I1.rest.xml","rho.rest.xml"]);
+$rho_proj0_p000_T1->recon_ws("true");
+\end{verbatim} 
+\normalsize
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+Note, this requires you having determined the optimal values of t0 and tz. Go ahead and run this script and it will generate the weights in both xml and a list form. You should also see a histogram plot with the values of the weights. Here are some examples of the output:
+\footnotesize
+\begin{verbatim}
+rho_proj1_p100_H0D4A1.list
+rho_proj1_p100_H0D4A1.xml  
+\end{verbatim} 
+\normalsize
+
+Next, go two directories up to
+\footnotesize
+\begin{verbatim}
+step 5: go to directories up
+~/git/scripts_cjs/optimized_operators/szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265_per
+\end{verbatim} 
+\normalsize
+
+Take a look inside the following scripts to see what they do, and then run them
+ \footnotesize
+\begin{verbatim}
+./make_meta_normalization_sdb.csh
+./make_meta_xml.csh
+ \end{verbatim} 
+\normalsize
+ which give the meta normalization and weights files:
+\footnotesize
+\begin{verbatim}
+norms.szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265_per.list
+norms.szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265_per.sdb
+weights.szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265_per.list
+weights.szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265_per.xml.
+\end{verbatim} 
+\normalsize
+At this point, you are done making the weights. 
+
+% \footnotesize
+%\begin{verbatim}
+%step 6: make sure the following is reference in your driver_proj0.xml file
+%which is called in when "radmat_util gen_xml_check_op driver_proj0.xml all".
+%for more details on this see the notes on contraction
+%
+%/u/home/rbriceno/git/scripts_cjs/optimized_operators/szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265_per/norms.szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265_per.sdb
+%
+%/u/home/rbriceno/git/scripts_cjs/optimized_operators/szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265_per/weights.szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265_per.xml
+%\end{verbatim} \normalsize
+
+ 
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\begin{figure}[!h]
+\begin{center}
+\includegraphics[scale=0.35]{contractions}
+\caption{Shown are the different types of Wick contractions that appear in the evaluation of three-point function for, for example, $\pi\pi\to\pi\gamma^\star$. }
+\label{fig:contractions}
+\end{center}
+\end{figure}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+
+\section{Generalized Parambulators}
+\subsection{Definition}
+As an example, consider  $\pi\pi\to\pi\gamma^\star$ which was studied in Ref.~\cite{Briceno:2015dca}. Figure~\ref{fig:contractions} illustrates the classes of Wick contractions needed to perform in evaluating the corresponding three-point function. Just as with two-point functions, to evaluate these we take advantage of distillation techniques. As to avoid smearing the local electromagnetic current, we only use distillation for the ends of the quark propagator that are not in direct contact with the current. For example, a subset of the types of correlation functions can be generically written as
+\begin{align}
+C^{3pt.,C}_{\pi\pi,\pi}(\Delta t,t)&\supset \big\langle 0 \big| \bar{q} \Box \mathbf{\Gamma}^f \Box q (\Delta t)   
+					\bar{q} \mathbf{\Gamma}^\mu q (t) 
+					\bar{q} \Box \mathbf{\Gamma}^i \Box q (0) \big| 0 \big\rangle \nonumber,
+\end{align}
+where $\Box$ is the smearing operator
+\begin{align}
+\Box_{\textbf{x}\textbf{y}}(t)= \sum_n^{N_{vec}}\xi^{(n)}_{\textbf{x}}(t) \xi^{(n)\dag}_{\textbf{y}}(t).
+\end{align}
+
+Note that smearing operator has only been implemented in the source and sink operators, assuring that the current is not smeared. Type C contractions in Figure~\ref{fig:contractions} result in terms of the following form
+\begin{align}
+C^{3pt.,C}_{\pi\pi,\pi}(\Delta t,t)&\supset 
+ - \rm{tr}\left[ \tau(0,\Delta t)\, \Phi^f(\Delta t)
+\; \mathcal{G}^\mathbf{\mu}(\Delta t, t, 0) \;
+ \Phi^i(0) \right], \nonumber
+\end{align}
+where $\mathcal{G}^{\mu}(\Delta t, t, 0)\equiv \xi^{(p)\dag}(\Delta t) M^{-1}_{\Delta t, t} \mathbf{\Gamma} M^{-1}_{t,0} \xi^{(q)}(0)$ is the \emph{generalized perambulator}.
+
+We can currently evaluate the first three types of contractions shown in Figure~\ref{fig:contractions} and not the disconnected diagrams. Because these require \emph{all-to-all} generalized perambulators, these are significantly more computationally costly than the other one used. At the SU(3) point these contributions exactly cancel~\cite{Shultz:2015pfa}, but for the quark masses used in this work these contributions are nonzero.  
+
+
+
+\subsection{The nitty-gritty}
+All my runs directories can be found in:
+\footnotesize
+\begin{verbatim}
+/u/home/rbriceno/runs
+\end{verbatim} 
+\normalsize
+Go to the following directory
+\footnotesize
+\begin{verbatim}
+/u/home/rbriceno/runs/gen_parambulators/szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265
+\end{verbatim} 
+\normalsize
+
+There you will see to directories:
+\footnotesize
+\begin{verbatim}
+t0_0_dt32  
+t0_0_dt32_rho
+\end{verbatim} 
+\normalsize
+The first of these was used to generate the current for $\langle\pi |\mathcal{J}^\mu|\pi\pi\rangle$, where $\mathcal{J}^\mu$ is the electromagnetic current. The second was the one for $\langle\pi |\mathcal{J}^\mu|\pi\rangle $. Note the component of the component of the currents that must be evaluated will differ depending on the initial and final states. So, let say we are interested in evaluating matrix elements of the QED current
+\begin{align}
+{\mathcal{J}}^{\mu}=q_u\bar{u}\gamma^\mu u+q_d\bar{d}\gamma^\mu d=(2\bar{u}\gamma^\mu u-\bar{d}\gamma^\mu d)/3
+\end{align} 
+The currents that are actually used in the calculation are 
+\begin{align}
+\rho^{\mu}&=(\bar{u}\gamma^\mu u-\bar{d}\gamma^\mu d)/\sqrt{2}\\
+\omega^{\mu}&=(\bar{u}\gamma^\mu u+\bar{d}\gamma^\mu d)/\sqrt{2}
+\end{align} 
+We can rewrite ${\mathcal{J}}^{\mu}$ as a linear combination of these two
+\begin{align}
+{\mathcal{J}}^{\mu}=\frac{ \rho^{\mu}}{\sqrt{2}}+\frac{\omega^{\mu}}{3\sqrt{2}}
+\end{align} 
+For the $\pi$-form factor, one sees that by performing the contractions, the only component of the QED current that survives the $\rho$-like piece
+\begin{align}
+\langle\pi|{\mathcal{J}}^{\mu}|\pi\rangle=
+\langle\pi|\rho^{\mu}|\pi\rangle/\sqrt{2}
+\end{align}
+The code evaluates $\langle\pi|\rho^{\mu}|\pi\rangle$ so this means we must divide this $\sqrt{2}$. 
+
+
+For the $\pi\to \pi\pi$ form factor, one sees that the component survives the $\omega$-like piece
+\begin{align}
+\langle\pi|{\mathcal{J}}^{\mu}|\pi\pi\rangle=
+\langle\pi|\omega^{\mu}|\pi\pi\rangle/3 \sqrt{2}
+\end{align}
+The code evaluates $\langle\pi|\omega^{\mu}|\pi\pi\rangle$ so this means we must divide this $3\sqrt{2}$. 
+\\
+%It is important to note that in determining the $\langle\pi|{\mathcal{J}}^{\mu}|\pi\pi\rangle$ matrix elements, I forgot to remove the $\rm <RGE\_prop>4</RGE\_prop>$ factor. This was in place to scale everything by a factor of 4. This means that I have to multiply the form factor by $4/3\sqrt{2}$, which is approximately one. Consequently this will have minimal consequences in the final answer. 
+%\\
+%Also, Christian had determined $\rm <Z\_s>1.159378</Z\_s>$, which is off by a few percent from the value I am getting now of 1.2005. 
+%\\
+%Putting all of the pieces together, the $\pi$-to$\rho$ matrix elements should be scaled by $(1.2005/1.159378)\times(4/3\sqrt{2})=0.97625$. 
+
+
+\footnotesize
+\begin{verbatim}
+radmat_util gen_xml driver.xml k
+\end{verbatim} 
+\normalsize
+
+\footnotesize
+\begin{verbatim}
+     1  13:48 cd 840_20/
+     4  13:49 ls ../runs/
+     5  13:49 cd ../runs/
+     7  13:49 ls gen_parambulators/     
+     8  13:49 ls gen_parambulators/szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265/
+     9  13:49 ls gen_parambulators/szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265/dt24/isospin0_annih/
+    10  13:49 cd gen_parambulators/szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265/
+    12  13:50 mkdir t0_0_dt32
+    14  13:50 rm -r dt24/
+    15  13:50 rm -rf dt24/
+    17  13:50 cd t0_0_dt32/
+    20  13:51 ls /u/home/shultz/data/gen_props/szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265/combined_run/t0_0_dt32
+    21  13:52 cp /u/home/shultz/data/gen_props/szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265/combined_run/t0_0_dt32/* ./
+    23  13:52 rm colorvec_work.pl
+    24  13:52 rm ParamsDistillation.pm
+    26  13:54 ln -s ~/git/scripts_cjs/run_redstar/gen_props/szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265_per/ParamsDistillation.pm ./
+    28  13:54 vim ParamsDistillation.pm
+    29  13:55 ln -s ~/git/scripts_rge/run/chroma/colorvec_work.pl ./
+    30  13:55 ls ~/git/
+    34  13:56 rm driver.dt2.xml
+    39  14:30 ls
+    40  14:31 radmat_util gen_xml driver.xml k
+    43  14:32 radmat_util gen_xml driver.xml all
+    44  14:33 vim driver.xml
+    45  14:33 history
+
+     2  13:43 cd runs/
+     4  13:43 cd /u/home/shultz/data/gen_props/szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265/combined_run/t0_0_dt32
+     7  13:52 cd ~/git/scripts_cjs/
+     8  13:53 git pull
+    11  14:42 cd /lustre/volatile/Spectrum/Clover/NF2+1/rbriceno_tmp
+    13  14:42 cd szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265_per/
+    17  15:03 mkdir gen_prop_t0_0_dt32
+    19  15:04 cd gen_prop_t0_0_dt32/
+    24  15:05 ls ~/runs/gen_parambulators/szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265/t0_0_dt32/*
+    25  15:06 ls ~/runs/gen_parambulators/szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265/t0_0_dt32/* | xargs -I qq ln -s qq
+    27  15:06 unlink run_directory:
+    29  15:07 unlink sdb.list
+    31  15:07 cp ~/runs/szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265_per/pion_proj9__rho_proj0-1/sdb.list ./
+    33  15:07 pwd
+    34  15:07 cp sdb.list ../
+    36  15:07 ls ../
+    40  15:08 qstat
+    44  15:09 vim gp_t0_0_dt_32_k20.e6390050
+    45  15:09 ls /home/rbriceno/rbriceno_volatile/szscl3_16_128_b1p50_t_x4p300_um0p0743_n1p265_per/szscl3_16_128_b1p50_t_x4p300_um0p0743_n1p265_per.out1000
+    46  15:09 vim /home/rbriceno/rbriceno_volatile/szscl3_16_128_b1p50_t_x4p300_um0p0743_n1p265_per/szscl3_16_128_b1p50_t_x4p300_um0p0743_n1p265_per.out1000
+    47  15:10 ln -s ~/arch/harom/scalar-Nd3/bin/modkeys ~/bin/
+    48  15:10 cp ../sdb.list ./
+    49  15:10 qsub ib.kepler.csh
+    54  15:20 ls
+    56  15:21 qstat -u rbriceno
+    57  15:21 history
+
+    1  13:48 cd 840_20/
+     4  13:49 ls ../runs/
+     5  13:49 cd ../runs/
+     7  13:49 ls gen_parambulators/
+     8  13:49 ls gen_parambulators/szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265/
+     9  13:49 ls gen_parambulators/szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265/dt24/isospin0_annih/
+    10  13:49 cd gen_parambulators/szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265/
+    12  13:50 mkdir t0_0_dt32
+    14  13:50 rm -r dt24/
+    15  13:50 rm -rf dt24/
+    17  13:50 cd t0_0_dt32/
+    20  13:51 ls /u/home/shultz/data/gen_props/szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265/combined_run/t0_0_dt32
+    21  13:52 cp /u/home/shultz/data/gen_props/szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265/combined_run/t0_0_dt32/* ./
+    23  13:52 rm colorvec_work.pl
+    24  13:52 rm ParamsDistillation.pm
+    26  13:54 ln -s ~/git/scripts_cjs/run_redstar/gen_props/szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265_per/ParamsDistillation.pm ./
+    28  13:54 vim ParamsDistillation.pm
+    29  13:55 ln -s ~/git/scripts_rge/run/chroma/colorvec_work.pl ./
+    30  13:55 ls ~/git/
+    34  13:56 rm driver.dt2.xml
+    40  14:31 radmat_util gen_xml driver.xml k
+    43  14:32 radmat_util gen_xml driver.xml all
+    44  14:33 vim driver.xml
+    47  14:34 vim ~/history.feb.28.2015
+    49  14:34 ls *xml
+    51  14:36 vim npt.list.xml
+    52  14:40 ls ../
+    53  14:40 ls ~/
+    55  14:41 ls -l ~/rbriceno_volatile/
+    56  14:41 ls -l
+    57  14:41 ls -l ~/
+    58  14:43 ln -s /lustre/volatile/Spectrum/Clover/NF2+1/rbriceno_tmp/szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265_per ./volatile
+    60  14:43 vim run_distillation_prop_gpu.ini.fwd.pl
+    61  14:47 vim run_distillation_prop_gpu.ini.bk.pl
+    65  14:51 vim note.txt
+    67  14:54 grep shultz *
+    68  14:57 vim ~/git/redstar/build/do_config.sh
+    70  14:59 rm ib.285.csh
+    71  14:59 rm ib.fermi.csh
+    74  15:01 ls ~/rbriceno_volatile/
+    76  15:01 ls volatile/
+    78  15:02 file volatile/
+    79  15:02 file volatile
+    80  15:02 vim ib.kepler.csh
+    81  15:03 unlink volatile
+    83  15:03 pwd
+    84  15:04 ln -s /lustre/volatile/Spectrum/Clover/NF2+1/rbriceno_tmp/szscl21_20_128_b1p50_t_x4p300_um0p0840_sm0p0743_n1p265_per/gen_prop_t0_0_dt32 run_directory
+    87  15:22 vim drive_unsmeared_nodes2.pXYZ.pl
+    93  15:35 ls run_di
+    94  15:35 ls run_directory/
+    95  15:36 ls ~/840_20/cache/gen_props/
+    99  15:37 ls ~/840_20/cache/gen_props/gen_prop_dbs/
+   100  15:37 ls ~/840_20/cache/gen_props/gen_prop_dbs/dt32/
+   102  15:38 ln -s ~/840_20/cache/gen_props/gen_prop_dbs/dt32/ gen_props_cache_dir
+   106  15:39 ls gen_props_cache_dir/
+   107  15:39 qstat -u rbrinoce
+   108  15:39 qstat -u rbrino
+   111  15:50 qstat -u rbriceno
+   113  15:50 cd run_directory/
+   115  15:51 rsh qcd12km0107
+   116  15:51 rsh qcd12k0107
+   117  15:52 ls
+\end{verbatim} 
+\normalsize
+
+\subsection{Contractions}
+
+
+\footnotesize
+\begin{verbatim}
+
+###### this piece of code makes ?npt.list.xml? from driver_proj0.xml. It creates inputs for all three-point functions that are allowed by the source and sink momenta. 
+
+radmat_util gen_xml_check_op driver_proj0.xml all
+
+###### then we move the file to make sure we don?t overwrite it
+mv npt.list.xml npt.list_proj0.xml
+
+##### repeat the same with the first excited state for the rho
+radmat_util gen_xml_check_op driver_proj1.xml all
+mv npt.list.xml npt.list_proj1.xml
+
+
+##### this writes the two npt.list files into one coherent one
+
+print_nodeset npt.list_proj0.xml /NPointList | head -n -2 | tail -n +4 > foo
+tail foo
+print_nodeset npt.list_proj1.xml /NPointList | head -n -1 | tail -n +5 >> foo
+mv foo npt.list.xml
+
+
+#this serves as a test to see if run_redstar will work
+# and it is run locally
+./run_redstar.3pt.pl 1000 32 ./ > & foo
+./run_redstar.3pt.pl 1000 32 ./ > & foo
+
+./run_redstar.3pt.pl 4300 32 ./
+
+#this run 100 jobs in the ib8 nodes with 1 second separatation between jobs
+./three_point_driver.pl ib8 100 1
+#this run 150 jobs in the mic nodes with 1 second separatation between jobs
+./three_point_driver.pl mic 50 1
+
+die "usage: $0 <seqno> <delta_t> <output_path> " unless $#ARGV == 2;
+
+
+#this deletes all the stuff in scratch that is mine
+ls -al /scratch | grep rbriceno | awk '{print "rm /scratch/" $9 }' | $SHELL -x
+\end{verbatim} 
+\normalsize
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+\section{Analysis}
+
+
+ 
+\bibliographystyle{apsrev} %%% physical review
+\bibliography{bibi} %%% ref.bib file
+
+\end{document}
+
